@@ -8,6 +8,7 @@ node_modules/
 dist/
 web-build/
 expo-env.d.ts
+.vscode/
 
 # Native
 .kotlin/
@@ -41,5 +42,3 @@ app-example
 # generated native folders
 /ios
 /android
-#fire base
-firebaseConfig.tsx

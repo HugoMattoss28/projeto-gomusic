@@ -8,6 +8,7 @@ import { StatusBar } from "expo-status-bar"; // <-- Adicionado para controlar a 
 import LoginScreen from "./src/screen/login_screen";
 import RegisterScreen from "./src/screen/register_screen";
 import SplashScreen from "./src/screen/splash_screen";
+import HomeScreen from "./src/screen/home_screen";
 
 const Stack = createNativeStackNavigator();
 
@@ -24,6 +25,7 @@ export default function App() {
         <Stack.Screen name="Splash" component={SplashScreen} />
         <Stack.Screen name="Login" component={LoginScreen} />
         <Stack.Screen name="Register" component={RegisterScreen} />
+        <Stack.Screen name="Home" component={HomeScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
