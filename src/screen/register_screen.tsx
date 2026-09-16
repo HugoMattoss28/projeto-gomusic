@@ -1,7 +1,7 @@
 import React, { useState } from "react";
 import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
-import { userService } from "./services/userService"; // Mantive a sua importação do serviço!
+import { userService } from "./services/userService";
 
 export default function CadastroScreen({ navigation }: any) {
   // =====================================================
@@ -18,6 +18,9 @@ export default function CadastroScreen({ navigation }: any) {
   const [passwordError, setPasswordError] = useState("");
 
   const [showPassword, setShowPassword] = useState(false);
+  
+  // NOVO ESTADO: Controla a exibição da mensagem verde
+  const [registerSuccess, setRegisterSuccess] = useState(false);
 
   const hasEightCharacters = password.length >= 8;
   const hasLetter = /[A-Za-z]/.test(password);
@@ -101,14 +104,20 @@ export default function CadastroScreen({ navigation }: any) {
     const passwordIsValid = validatePassword();
 
     if (!nameIsValid || !emailIsValid || !phoneIsValid || !passwordIsValid) {
-      Alert.alert("Atenção", "Por favor, verifique os dados informados.");
-      return;
+      return; // Para silenciosamente, as bordas vermelhas já avisam o erro
     }
 
     try {
       await userService.cadastrarUsuario(name.trim(), phone.trim(), email.trim(), password);
-      Alert.alert("Cadastro realizado", "Sua conta foi criada com sucesso! Você já pode entrar.");
-      navigation.navigate("Login");
+      
+      // 1. Mostra a caixa verde de sucesso!
+      setRegisterSuccess(true);
+      
+      // 2. Espera 2.5 segundos para o usuário ler, e redireciona sozinho
+      setTimeout(() => {
+        navigation.replace("Login");
+      }, 2500);
+
     } catch (error) {
       console.error("Erro ao cadastrar: ", error);
       Alert.alert("Erro", "Não foi possível realizar o cadastro. Tente novamente.");
@@ -120,18 +129,15 @@ export default function CadastroScreen({ navigation }: any) {
   // =====================================================
   return (
     <View style={styles.container}>
-      {/* METADE SUPERIOR - LOGO E BOAS VINDAS */}
       <View style={styles.topSection}>
         <Image source={require("../../assets/imagens/gomusic_logo.png")} style={styles.logo} />
         <Text style={styles.welcomeText}>Crie sua conta</Text>
         <Text style={styles.subtitleText}>Junte-se ao goMusic e sinta a vibe.</Text>
       </View>
 
-      {/* METADE INFERIOR - BOTTOM SHEET (CARTÃO ARREDONDADO) */}
       <KeyboardAvoidingView style={styles.bottomSheet} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           
-          {/* INPUT NOME */}
           <View style={[styles.inputContainer, nameError ? styles.inputError : null]}>
             <Ionicons name="person-outline" size={20} color="#858585" style={styles.inputIcon} />
             <TextInput
@@ -141,11 +147,11 @@ export default function CadastroScreen({ navigation }: any) {
               autoCapitalize="words"
               value={name}
               onChangeText={handleNameChange}
+              editable={!registerSuccess} // Bloqueia a edição se já deu certo
             />
           </View>
           {nameError !== "" && <Text style={styles.errorText}>{nameError}</Text>}
 
-          {/* INPUT E-MAIL */}
           <View style={[styles.inputContainer, emailError ? styles.inputError : null, { marginTop: nameError ? 5 : 15 }]}>
             <Ionicons name="mail-outline" size={20} color="#858585" style={styles.inputIcon} />
             <TextInput
@@ -156,11 +162,11 @@ export default function CadastroScreen({ navigation }: any) {
               autoCapitalize="none"
               value={email}
               onChangeText={handleEmailChange}
+              editable={!registerSuccess}
             />
           </View>
           {emailError !== "" && <Text style={styles.errorText}>{emailError}</Text>}
 
-          {/* INPUT CELULAR */}
           <View style={[styles.inputContainer, phoneError ? styles.inputError : null, { marginTop: emailError ? 5 : 15 }]}>
             <Ionicons name="call-outline" size={20} color="#858585" style={styles.inputIcon} />
             <TextInput
@@ -171,11 +177,11 @@ export default function CadastroScreen({ navigation }: any) {
               maxLength={15}
               value={phone}
               onChangeText={handlePhoneChange}
+              editable={!registerSuccess}
             />
           </View>
           {phoneError !== "" && <Text style={styles.errorText}>{phoneError}</Text>}
 
-          {/* INPUT SENHA */}
           <View style={[styles.inputContainer, passwordError ? styles.inputError : null, { marginTop: phoneError ? 5 : 15 }]}>
             <Ionicons name="lock-closed-outline" size={20} color="#858585" style={styles.inputIcon} />
             <TextInput
@@ -186,6 +192,7 @@ export default function CadastroScreen({ navigation }: any) {
               autoCapitalize="none"
               value={password}
               onChangeText={handlePasswordChange}
+              editable={!registerSuccess}
             />
             <Pressable onPress={() => setShowPassword(!showPassword)} style={styles.eyeIcon}>
               <Ionicons name={showPassword ? "eye-off-outline" : "eye-outline"} size={20} color="#858585" />
@@ -193,31 +200,49 @@ export default function CadastroScreen({ navigation }: any) {
           </View>
           {passwordError !== "" && <Text style={styles.errorText}>{passwordError}</Text>}
 
-          {/* REGRAS DA SENHA (NOVO VISUAL) */}
-          <View style={styles.passwordRules}>
-            <Text style={[styles.rule, hasEightCharacters && styles.ruleValid]}>
-              <Ionicons name={hasEightCharacters ? "checkmark-circle" : "ellipse-outline"} size={12} /> Mínimo de 8 caracteres
-            </Text>
-            <Text style={[styles.rule, hasLetter && styles.ruleValid]}>
-              <Ionicons name={hasLetter ? "checkmark-circle" : "ellipse-outline"} size={12} /> Pelo menos uma letra
-            </Text>
-            <Text style={[styles.rule, hasNumber && styles.ruleValid]}>
-              <Ionicons name={hasNumber ? "checkmark-circle" : "ellipse-outline"} size={12} /> Pelo menos um número
-            </Text>
-            <Text style={[styles.rule, hasSymbol && styles.ruleValid]}>
-              <Ionicons name={hasSymbol ? "checkmark-circle" : "ellipse-outline"} size={12} /> Pelo menos um símbolo (@, #, !, etc)
-            </Text>
+          <View style={styles.rulesGrid}>
+            <View style={[styles.ruleBadge, hasEightCharacters && styles.ruleBadgeValid]}>
+              <Ionicons name={hasEightCharacters ? "checkmark" : "close"} size={14} color={hasEightCharacters ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasEightCharacters && styles.ruleTextValid]}>8+ Caract.</Text>
+            </View>
+
+            <View style={[styles.ruleBadge, hasLetter && styles.ruleBadgeValid]}>
+              <Ionicons name={hasLetter ? "checkmark" : "close"} size={14} color={hasLetter ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasLetter && styles.ruleTextValid]}>Uma Letra</Text>
+            </View>
+
+            <View style={[styles.ruleBadge, hasNumber && styles.ruleBadgeValid]}>
+              <Ionicons name={hasNumber ? "checkmark" : "close"} size={14} color={hasNumber ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasNumber && styles.ruleTextValid]}>Um Número</Text>
+            </View>
+
+            <View style={[styles.ruleBadge, hasSymbol && styles.ruleBadgeValid]}>
+              <Ionicons name={hasSymbol ? "checkmark" : "close"} size={14} color={hasSymbol ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasSymbol && styles.ruleTextValid]}>Símbolo (@#)</Text>
+            </View>
           </View>
 
-          {/* BOTÃO CADASTRAR NEON */}
-          <Pressable style={({ pressed }) => [styles.registerBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]} onPress={cadastrarUsuario}>
-            <Text style={styles.registerBtnText}>CRIAR CONTA</Text>
-          </Pressable>
+          {/* =====================================================
+              NOVO DESIGN: CAIXA VERDE DE SUCESSO
+              ===================================================== */}
+          {registerSuccess ? (
+            <View style={styles.successContainer}>
+              <Ionicons name="checkmark-circle-outline" size={24} color="#10B981" />
+              <View style={styles.successTextColumn}>
+                <Text style={styles.successTitle}>Conta Criada!</Text>
+                <Text style={styles.successText}>Redirecionando para o login...</Text>
+              </View>
+            </View>
+          ) : (
+            /* BOTÃO CADASTRAR SÓ APARECE SE AINDA NÃO DEU SUCESSO */
+            <Pressable style={({ pressed }) => [styles.registerBtn, pressed && { opacity: 0.8, transform: [{ scale: 0.98 }] }]} onPress={cadastrarUsuario}>
+              <Text style={styles.registerBtnText}>CRIAR CONTA</Text>
+            </Pressable>
+          )}
 
-          {/* LINK DE VOLTAR PRO LOGIN */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Já possui uma conta?</Text>
-            <Pressable onPress={() => navigation.navigate("Login")}>
+            <Pressable onPress={() => navigation.navigate("Login")} disabled={registerSuccess}>
               <Text style={styles.loginLink}> Entrar</Text>
             </Pressable>
           </View>
@@ -231,13 +256,11 @@ export default function CadastroScreen({ navigation }: any) {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090B" },
   
-  // -- TOPO --
   topSection: { flex: 0.35, alignItems: "center", justifyContent: "center", paddingBottom: 10, paddingTop: 30 },
   logo: { width: 70, height: 70, resizeMode: "contain", marginBottom: 10 },
   welcomeText: { fontSize: 24, fontWeight: "900", color: "#FFF", letterSpacing: -0.5 },
   subtitleText: { fontSize: 13, color: "#858585", marginTop: 5 },
 
-  // -- BOTTOM SHEET --
   bottomSheet: {
     flex: 0.65,
     backgroundColor: "#18181B",
@@ -249,7 +272,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: { flexGrow: 1, paddingBottom: 40 },
 
-  // -- INPUTS PÍLULA --
   inputContainer: {
     flexDirection: "row",
     alignItems: "center",
@@ -267,17 +289,71 @@ const styles = StyleSheet.create({
     color: "#FFF", 
     fontSize: 15, 
     height: "100%",
-    outlineStyle: "none" as any, // <--- CORREÇÃO AQUI
+    outlineStyle: "none" as any,
   },
   eyeIcon: { padding: 10 },
   errorText: { color: "#E05A47", fontSize: 11, marginLeft: 15, marginTop: 4, fontWeight: "600" },
 
-  // -- REGRAS DA SENHA --
-  passwordRules: { marginTop: 15, marginBottom: 25, marginLeft: 10 },
-  rule: { fontSize: 11, color: "#666", marginBottom: 5 },
-  ruleValid: { color: "#8B5CF6", fontWeight: "700" },
+  rulesGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    justifyContent: "space-between",
+    marginTop: 15,
+    marginBottom: 25,
+  },
+  ruleBadge: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#27272A", 
+    width: "48%", 
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: "#333",
+  },
+  ruleBadgeValid: {
+    backgroundColor: "rgba(139, 92, 246, 0.15)", 
+    borderColor: "rgba(139, 92, 246, 0.5)", 
+  },
+  ruleText: {
+    fontSize: 10,
+    color: "#666",
+    marginLeft: 6,
+    fontWeight: "700",
+  },
+  ruleTextValid: {
+    color: "#8B5CF6", 
+  },
 
-  // -- BOTÃO NEON --
+  // -- ESTILOS DA CAIXA DE SUCESSO --
+  successContainer: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "rgba(16, 185, 129, 0.1)", // Fundo verde transparente
+    paddingVertical: 12,
+    paddingHorizontal: 15,
+    borderRadius: 15,
+    borderWidth: 1,
+    borderColor: "rgba(16, 185, 129, 0.3)",
+    height: 60, // Mesma altura do botão para a troca ser suave
+  },
+  successTextColumn: {
+    marginLeft: 12,
+  },
+  successTitle: {
+    color: "#10B981",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  successText: {
+    color: "#10B981",
+    fontSize: 11,
+    marginTop: 2,
+    opacity: 0.8,
+  },
+
   registerBtn: {
     backgroundColor: "#8B5CF6",
     height: 60,
@@ -288,7 +364,6 @@ const styles = StyleSheet.create({
   },
   registerBtnText: { color: "#FFF", fontSize: 14, fontWeight: "900", letterSpacing: 1.5 },
 
-  // -- LOGIN LINK --
   loginContainer: { flexDirection: "row", justifyContent: "center", marginTop: 25 },
   loginText: { color: "#A1A1AA", fontSize: 13 },
   loginLink: { color: "#8B5CF6", fontSize: 13, fontWeight: "bold" },
