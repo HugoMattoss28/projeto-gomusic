@@ -10,27 +10,60 @@ import {
   TouchableOpacity,
   View,
   Modal, // Importação necessária
+  Alert,
 } from "react-native";
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { signOut } from "firebase/auth";
+import { auth } from "./services/firebaseConfig";
 
-export default function HomeScreen({ navigation }: any) {
+export default function HomeScreen({ route, navigation }: any) {
   // =====================================================
   // ESTADOS E LÓGICA DO MODO PREMIUM
   // =====================================================
+  
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      navigation.replace("Login");
+    } catch (error) {
+      console.log("Erro ao sair", error);
+    }
+  };
+
+  const confirmLogout = () => {
+    if (Platform.OS === "web") {
+      const confirm = window.confirm("Tem certeza que deseja encerrar a sessão?");
+      if (confirm) {
+        handleLogout();
+      }
+    } else {
+      Alert.alert(
+        "Sair da conta",
+        "Tem certeza que deseja encerrar a sessão?",
+        [
+          { text: "Cancelar", style: "cancel" },
+          { text: "Sair", onPress: handleLogout, style: "destructive" }
+        ]
+      );
+    }
+  };
   
   // Controla se a tela flutuante (Modal) está visível ou não
   const [showPremiumModal, setShowPremiumModal] = useState(false);
 
   // useEffect para disparar o aviso após um tempo
   useEffect(() => {
-    // Simulando o Spotify: Espera 3 segundos após carregar a Home e mostra o Premium
-    const timer = setTimeout(() => {
-      setShowPremiumModal(true);
-    }, 3000); 
+    // Só dispara se tiver a prop de showPremium via navegação do Login
+    if (route.params?.showPremium) {
+      const timer = setTimeout(() => {
+        setShowPremiumModal(true);
+        // Limpa o parâmetro para não mostrar de novo ao voltar da Busca
+        navigation.setParams({ showPremium: false });
+      }, 3000); 
 
-    // Limpeza do timer caso o usuário saia da tela antes dos 3 segundos
-    return () => clearTimeout(timer);
-  }, []);
+      return () => clearTimeout(timer);
+    }
+  }, [route.params?.showPremium]);
 
   // =====================================================
   // DADOS FAKES (MANTIDOS DAS VERSÕES ANTERIORES)
@@ -128,15 +161,19 @@ export default function HomeScreen({ navigation }: any) {
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.tabItem}>
           <Ionicons name="home" size={24} color="#FFFFFF" />
-          <Text style={styles.tabTextActive}>Início</Text>
+          <Text style={styles.tabTextActive}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Search")}>
           <Ionicons name="search" size={24} color="#858585" />
           <Text style={styles.tabText}>Buscar</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.tabItem}>
-          <Ionicons name="library-outline" size={24} color="#858585" />
-          <Text style={styles.tabText}>Sua Biblioteca</Text>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Api")}>
+          <Ionicons name="code-slash-outline" size={24} color="#858585" />
+          <Text style={styles.tabText}>API</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tabItem} onPress={confirmLogout}>
+          <Ionicons name="log-out-outline" size={24} color="#858585" />
+          <Text style={styles.tabText}>Encerrar</Text>
         </TouchableOpacity>
       </View>
 

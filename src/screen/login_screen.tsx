@@ -33,7 +33,7 @@ export default function LoginScreen({ navigation }: any) {
     if (!email.trim()) {
       setEmailError("Informe seu e-mail."); return false;
     }
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!emailRegex.test(email.trim())) {
       setEmailError("Digite um e-mail válido."); return false;
     }
@@ -43,6 +43,9 @@ export default function LoginScreen({ navigation }: any) {
   const validatePassword = () => {
     if (!password) {
       setPasswordError("Informe sua senha."); return false;
+    }
+    if (password.length < 6) {
+      setPasswordError("A senha deve ter pelo menos 6 caracteres."); return false;
     }
     setPasswordError(""); return true;
   };
@@ -60,13 +63,15 @@ export default function LoginScreen({ navigation }: any) {
 
     try {
       await signInWithEmailAndPassword(auth, email.trim(), password);
-      navigation.replace("Home");
+      navigation.replace("Home", { showPremium: true });
     } catch (error: any) {
       console.log("Erro do Firebase:", error.code);
       
       // Captura os erros de usuário não encontrado ou credenciais inválidas
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         setLoginError("Usuário não encontrado ou senha incorreta.");
+      } else if (error.code === 'auth/too-many-requests') {
+        setLoginError("Muitas tentativas falhas. Tente novamente mais tarde.");
       } else {
         setLoginError("Ocorreu um erro ao tentar entrar. Tente novamente.");
       }

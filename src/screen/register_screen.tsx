@@ -23,7 +23,8 @@ export default function CadastroScreen({ navigation }: any) {
   const [registerSuccess, setRegisterSuccess] = useState(false);
 
   const hasEightCharacters = password.length >= 8;
-  const hasLetter = /[A-Za-z]/.test(password);
+  const hasUppercase = /[A-Z]/.test(password);
+  const hasLowercase = /[a-z]/.test(password);
   const hasNumber = /\d/.test(password);
   const hasSymbol = /[^A-Za-z\d]/.test(password);
 
@@ -72,7 +73,7 @@ export default function CadastroScreen({ navigation }: any) {
   };
 
   const validateEmail = () => {
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    const emailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
     if (!email.trim() || !emailRegex.test(email)) {
       setEmailError("Digite um e-mail válido."); return false;
     }
@@ -88,7 +89,7 @@ export default function CadastroScreen({ navigation }: any) {
   };
 
   const validatePassword = () => {
-    if (!password || !hasEightCharacters || !hasLetter || !hasNumber || !hasSymbol) {
+    if (!password || !hasEightCharacters || !hasUppercase || !hasLowercase || !hasNumber || !hasSymbol) {
       setPasswordError("A senha não cumpre todos os requisitos."); return false;
     }
     setPasswordError(""); return true;
@@ -118,9 +119,13 @@ export default function CadastroScreen({ navigation }: any) {
         navigation.replace("Login");
       }, 2500);
 
-    } catch (error) {
+    } catch (error: any) {
       console.error("Erro ao cadastrar: ", error);
-      Alert.alert("Erro", "Não foi possível realizar o cadastro. Tente novamente.");
+      if (error.code === 'auth/email-already-in-use') {
+        setEmailError("Este e-mail já está cadastrado.");
+      } else {
+        Alert.alert("Erro", "Não foi possível realizar o cadastro. Tente novamente.");
+      }
     }
   };
 
@@ -206,17 +211,22 @@ export default function CadastroScreen({ navigation }: any) {
               <Text style={[styles.ruleText, hasEightCharacters && styles.ruleTextValid]}>8+ Caract.</Text>
             </View>
 
-            <View style={[styles.ruleBadge, hasLetter && styles.ruleBadgeValid]}>
-              <Ionicons name={hasLetter ? "checkmark" : "close"} size={14} color={hasLetter ? "#8B5CF6" : "#666"} />
-              <Text style={[styles.ruleText, hasLetter && styles.ruleTextValid]}>Uma Letra</Text>
+            <View style={[styles.ruleBadge, hasUppercase && styles.ruleBadgeValid]}>
+              <Ionicons name={hasUppercase ? "checkmark" : "close"} size={14} color={hasUppercase ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasUppercase && styles.ruleTextValid]}>Maiúscula</Text>
+            </View>
+
+            <View style={[styles.ruleBadge, hasLowercase && styles.ruleBadgeValid]}>
+              <Ionicons name={hasLowercase ? "checkmark" : "close"} size={14} color={hasLowercase ? "#8B5CF6" : "#666"} />
+              <Text style={[styles.ruleText, hasLowercase && styles.ruleTextValid]}>Minúscula</Text>
             </View>
 
             <View style={[styles.ruleBadge, hasNumber && styles.ruleBadgeValid]}>
               <Ionicons name={hasNumber ? "checkmark" : "close"} size={14} color={hasNumber ? "#8B5CF6" : "#666"} />
-              <Text style={[styles.ruleText, hasNumber && styles.ruleTextValid]}>Um Número</Text>
+              <Text style={[styles.ruleText, hasNumber && styles.ruleTextValid]}>Número</Text>
             </View>
 
-            <View style={[styles.ruleBadge, hasSymbol && styles.ruleBadgeValid]}>
+            <View style={[styles.ruleBadge, hasSymbol && styles.ruleBadgeValid, { width: "100%" }]}>
               <Ionicons name={hasSymbol ? "checkmark" : "close"} size={14} color={hasSymbol ? "#8B5CF6" : "#666"} />
               <Text style={[styles.ruleText, hasSymbol && styles.ruleTextValid]}>Símbolo (@#)</Text>
             </View>
