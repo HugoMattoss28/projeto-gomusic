@@ -1,6 +1,6 @@
-import React, { useState } from "react";
-import { Alert, Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import React, { useState } from "react";
+import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
 import { userService } from "./services/userService";
 
 export default function CadastroScreen({ navigation }: any) {
@@ -95,10 +95,14 @@ export default function CadastroScreen({ navigation }: any) {
     setPasswordError(""); return true;
   };
 
+  const [generalError, setGeneralError] = useState(""); // Novo estado
+
   // =====================================================
   // CADASTRAR USUÁRIO NO FIREBASE
   // =====================================================
   const cadastrarUsuario = async () => {
+    setGeneralError(""); // Limpa o erro ao tentar novamente
+
     const nameIsValid = validateName();
     const emailIsValid = validateEmail();
     const phoneIsValid = validatePhone();
@@ -124,7 +128,7 @@ export default function CadastroScreen({ navigation }: any) {
       if (error.code === 'auth/email-already-in-use') {
         setEmailError("Este e-mail já está cadastrado.");
       } else {
-        Alert.alert("Erro", "Não foi possível realizar o cadastro. Tente novamente.");
+        setGeneralError("Não foi possível realizar o cadastro. Tente novamente."); // Substitui o Alert
       }
     }
   };
@@ -231,6 +235,29 @@ export default function CadastroScreen({ navigation }: any) {
               <Text style={[styles.ruleText, hasSymbol && styles.ruleTextValid]}>Símbolo (@#)</Text>
             </View>
           </View>
+
+          {/* CAIXA DE ERRO GERAL (ex: sem internet) */}
+          {generalError !== "" && (
+            <View style={{
+              flexDirection: "row",
+              alignItems: "center",
+              backgroundColor: "rgba(224, 90, 71, 0.1)",
+              padding: 12,
+              borderRadius: 15,
+              marginBottom: 15,
+              borderWidth: 1,
+              borderColor: "rgba(224, 90, 71, 0.3)",
+            }}>
+              <Ionicons name="alert-circle-outline" size={20} color="#E05A47" />
+              <Text style={{
+                color: "#E05A47",
+                fontSize: 12,
+                marginLeft: 10,
+                fontWeight: "600",
+                flex: 1,
+              }}>{generalError}</Text>
+            </View>
+          )}
 
           {/* =====================================================
               NOVO DESIGN: CAIXA VERDE DE SUCESSO

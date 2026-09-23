@@ -1,6 +1,9 @@
-import React, { useState, useEffect } from "react";
+import { Ionicons, MaterialIcons } from "@expo/vector-icons";
+import { signOut } from "firebase/auth";
+import React, { useEffect, useState } from "react";
 import {
   Image,
+  Modal,
   Platform,
   SafeAreaView,
   ScrollView,
@@ -8,12 +11,9 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View,
-  Modal, // Importação necessária
-  Alert,
+  View
 } from "react-native";
-import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
+import { usePlaylists } from "../context/PlaylistContext";
 import { auth } from "./services/firebaseConfig";
 
 export default function HomeScreen({ route, navigation }: any) {
@@ -30,22 +30,10 @@ export default function HomeScreen({ route, navigation }: any) {
     }
   };
 
+  const [logoutModal, setLogoutModal] = useState(false);
+
   const confirmLogout = () => {
-    if (Platform.OS === "web") {
-      const confirm = window.confirm("Tem certeza que deseja encerrar a sessão?");
-      if (confirm) {
-        handleLogout();
-      }
-    } else {
-      Alert.alert(
-        "Sair da conta",
-        "Tem certeza que deseja encerrar a sessão?",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Sair", onPress: handleLogout, style: "destructive" }
-        ]
-      );
-    }
+    setLogoutModal(true);
   };
   
   // Controla se a tela flutuante (Modal) está visível ou não
@@ -74,10 +62,8 @@ export default function HomeScreen({ route, navigation }: any) {
     { id: "3", title: "Ausência", artist: "Veigh", image: require("../../assets/imagens/1.jpeg"), },
   ];
 
-  const playlists = [
-    { id: "4", title: "Trap & Phonk", artist: "Veigh, NBSPLV...", color: "#8B5CF6" },
-    { id: "5", title: "Foco total", artist: "Instrumental", color: "#10B981" },
-  ];
+  // Contexto de Playlists compartilhado com a tela de Playlist (CRUD)
+  const { playlists } = usePlaylists();
 
   // =====================================================
   // INTERFACE PRINCIPAL
@@ -116,19 +102,23 @@ export default function HomeScreen({ route, navigation }: any) {
           </ScrollView>
         </View>
 
-        {/* SEÇÃO: FEITO PARA VOCÊ */}
+        {/* SEÇÃO: SUAS PLAYLISTS */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Feito para você</Text>
+          <Text style={styles.sectionTitle}>Suas Playlists</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.horizontalScroll}>
-            {playlists.map((item) => (
-              <TouchableOpacity key={item.id} style={styles.card}>
-                <View style={[styles.albumCover, { backgroundColor: item.color, justifyContent: 'center', alignItems: 'center' }]}>
-                  <Ionicons name="musical-notes" size={40} color="#FFFFFF" style={{ opacity: 0.5 }} />
-                </View>
-                <Text style={styles.albumTitle} numberOfLines={1}>{item.title}</Text>
-                <Text style={styles.albumArtist} numberOfLines={1}>{item.artist}</Text>
-              </TouchableOpacity>
-            ))}
+            {playlists.length === 0 ? (
+              <Text style={{ color: "#A7A7A7", fontSize: 14 }}>Nenhuma playlist criada ainda.</Text>
+            ) : (
+              playlists.map((item) => (
+                <TouchableOpacity key={item.id} style={styles.card}>
+                  <View style={[styles.albumCover, { backgroundColor: item.color || "#8B5CF6", justifyContent: 'center', alignItems: 'center' }]}>
+                    <Ionicons name="musical-notes" size={40} color="#FFFFFF" style={{ opacity: 0.5 }} />
+                  </View>
+                  <Text style={styles.albumTitle} numberOfLines={1}>{item.name}</Text>
+                  <Text style={styles.albumArtist} numberOfLines={1}>{item.author}</Text>
+                </TouchableOpacity>
+              ))
+            )}
           </ScrollView>
         </View>
       </ScrollView>
@@ -166,6 +156,10 @@ export default function HomeScreen({ route, navigation }: any) {
         <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Search")}>
           <Ionicons name="search" size={24} color="#858585" />
           <Text style={styles.tabText}>Buscar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Playlist")}>
+          <Ionicons name="list" size={24} color="#858585" />
+          <Text style={styles.tabText}>Playlist</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Api")}>
           <Ionicons name="code-slash-outline" size={24} color="#858585" />
@@ -242,6 +236,34 @@ export default function HomeScreen({ route, navigation }: any) {
               <Text style={styles.laterButtonText}>Talvez mais tarde</Text>
             </TouchableOpacity>
 
+          </View>
+        </View>
+      </Modal>
+
+      {/* MODAL DE CONFIRMAÇÃO DE LOGOUT */}
+      <Modal
+        visible={logoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setLogoutModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, { paddingVertical: 30, alignItems: "center" }]}>
+            <Ionicons name="log-out-outline" size={50} color="#8B5CF6" style={{ marginBottom: 15 }} />
+            <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>Sair da conta</Text>
+            <Text style={{ color: "#A7A7A7", fontSize: 14, textAlign: "center", marginBottom: 25 }}>
+              Tem certeza que deseja encerrar a sessão?
+            </Text>
+            
+            <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+              <TouchableOpacity style={{ flex: 1, padding: 15, alignItems: "center", marginRight: 10, backgroundColor: "#404040", borderRadius: 8 }} onPress={() => setLogoutModal(false)}>
+                <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={{ flex: 1, padding: 15, alignItems: "center", marginLeft: 10, backgroundColor: "#8B5CF6", borderRadius: 8 }} onPress={handleLogout}>
+                <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>Sair</Text>
+              </TouchableOpacity>
+            </View>
           </View>
         </View>
       </Modal>

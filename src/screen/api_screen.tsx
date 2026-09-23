@@ -1,10 +1,12 @@
-import React from "react";
-import { SafeAreaView, StatusBar, StyleSheet, Text, View, TouchableOpacity, Alert, Platform } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import { signOut } from "firebase/auth";
+import React, { useState } from "react";
+import { Modal, SafeAreaView, StatusBar, StyleSheet, Text, TouchableOpacity, View } from "react-native";
 import { auth } from "./services/firebaseConfig";
 
 export default function ApiScreen({ navigation }: any) {
+  const [logoutModal, setLogoutModal] = useState(false);
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -15,21 +17,7 @@ export default function ApiScreen({ navigation }: any) {
   };
 
   const confirmLogout = () => {
-    if (Platform.OS === "web") {
-      const confirm = window.confirm("Tem certeza que deseja encerrar a sessão?");
-      if (confirm) {
-        handleLogout();
-      }
-    } else {
-      Alert.alert(
-        "Sair da conta",
-        "Tem certeza que deseja encerrar a sessão?",
-        [
-          { text: "Cancelar", style: "cancel" },
-          { text: "Sair", onPress: handleLogout, style: "destructive" }
-        ]
-      );
-    }
+    setLogoutModal(true);
   };
 
   return (
@@ -47,6 +35,34 @@ export default function ApiScreen({ navigation }: any) {
         <Text style={styles.infoText}>Aqui você poderá configurar integrações com APIs externas para trazer mais músicas e dados.</Text>
       </View>
 
+      {/* MODAL DE CONFIRMAÇÃO DE LOGOUT */}
+      <Modal
+        visible={logoutModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setLogoutModal(false)}
+      >
+        <View style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0.7)", justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
+          <View style={{ width: "100%", backgroundColor: "#2A2A2A", borderRadius: 16, padding: 20, paddingVertical: 30, alignItems: "center" }}>
+            <Ionicons name="log-out-outline" size={50} color="#8B5CF6" style={{ marginBottom: 15 }} />
+            <Text style={{ color: "#FFFFFF", fontSize: 20, fontWeight: "bold", marginBottom: 10 }}>Sair da conta</Text>
+            <Text style={{ color: "#A7A7A7", fontSize: 14, textAlign: "center", marginBottom: 25 }}>
+              Tem certeza que deseja encerrar a sessão?
+            </Text>
+            
+            <View style={{ flexDirection: "row", justifyContent: "space-between", width: "100%" }}>
+              <TouchableOpacity style={{ flex: 1, padding: 15, alignItems: "center", marginRight: 10, backgroundColor: "#404040", borderRadius: 8 }} onPress={() => setLogoutModal(false)}>
+                <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>Cancelar</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity style={{ flex: 1, padding: 15, alignItems: "center", marginLeft: 10, backgroundColor: "#8B5CF6", borderRadius: 8 }} onPress={handleLogout}>
+                <Text style={{ color: "#FFFFFF", fontWeight: "600" }}>Sair</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* MENU INFERIOR */}
       <View style={styles.bottomBar}>
         <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Home")}>
@@ -56,6 +72,10 @@ export default function ApiScreen({ navigation }: any) {
         <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Search")}>
           <Ionicons name="search" size={24} color="#858585" />
           <Text style={styles.tabText}>Buscar</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.tabItem} onPress={() => navigation.navigate("Playlist")}>
+          <Ionicons name="list" size={24} color="#858585" />
+          <Text style={styles.tabText}>Playlist</Text>
         </TouchableOpacity>
         <TouchableOpacity style={styles.tabItem}>
           <Ionicons name="code-slash" size={24} color="#FFFFFF" />
