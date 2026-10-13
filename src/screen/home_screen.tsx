@@ -114,8 +114,8 @@ export default function HomeScreen({ route, navigation }: any) {
                   <View style={[styles.albumCover, { backgroundColor: item.color || "#8B5CF6", justifyContent: 'center', alignItems: 'center' }]}>
                     <Ionicons name="musical-notes" size={40} color="#FFFFFF" style={{ opacity: 0.5 }} />
                   </View>
-                  <Text style={styles.albumTitle} numberOfLines={1}>{item.name}</Text>
-                  <Text style={styles.albumArtist} numberOfLines={1}>{item.author}</Text>
+                  <Text style={styles.albumTitle} numberOfLines={1}>{item.nome || (item as any).name}</Text>
+                  <Text style={styles.albumArtist} numberOfLines={1}>{item.autor || (item as any).author}</Text>
                 </TouchableOpacity>
               ))
             )}

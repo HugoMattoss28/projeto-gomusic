@@ -1,20 +1,17 @@
-import React, { createContext, ReactNode, useContext, useState } from 'react';
+import { onAuthStateChanged } from 'firebase/auth';
+import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import { PlaylistModel } from '../screen/models/PlaylistModel';
+import { auth } from '../screen/services/firebaseConfig';
+import { PlaylistService } from '../screen/services/playlistService';
 
-export interface Playlist {
-  id: string;
-  name: string;
-  description: string;
-  genre: string;
-  author: string;
-  mood: string;
-  color?: string;
-}
+export type Playlist = PlaylistModel & { id: string };
 
 interface PlaylistContextData {
   playlists: Playlist[];
-  addPlaylist: (playlist: Omit<Playlist, 'id'>) => void;
-  updatePlaylist: (id: string, updatedPlaylist: Omit<Playlist, 'id'>) => void;
-  deletePlaylist: (id: string) => void;
+  carregarPlaylists: () => Promise<void>;
+  addPlaylist: (playlist: PlaylistModel) => Promise<PlaylistModel>;
+  updatePlaylist: (id: string, updatedPlaylist: PlaylistModel) => Promise<boolean>;
+  deletePlaylist: (id: string) => Promise<boolean>;
 }
 
 const PlaylistContext = createContext<PlaylistContextData>({} as PlaylistContextData);
@@ -22,51 +19,59 @@ const PlaylistContext = createContext<PlaylistContextData>({} as PlaylistContext
 const defaultColors = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444'];
 
 export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
-  const [playlists, setPlaylists] = useState<Playlist[]>([
-    { 
-      id: "1", 
-      name: "Trap & Phonk", 
-      description: "Músicas para treinar", 
-      genre: "Trap", 
-      author: "Veigh", 
-      mood: "Focado",
-      color: "#8B5CF6"
-    },
-    { 
-      id: "2", 
-      name: "Foco total", 
-      description: "Instrumental para estudo", 
-      genre: "Lo-fi", 
-      author: "Lofi Girl", 
-      mood: "Calmo",
-      color: "#10B981"
-    },
-  ]);
+  const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
-  const addPlaylist = (playlistData: Omit<Playlist, 'id'>) => {
+  const carregarPlaylists = async (uid?: string) => {
+    try {
+      const userId = uid || auth.currentUser?.uid;
+      if (!userId) {
+        setPlaylists([]);
+        return;
+      }
+      const dados = await PlaylistService.listarTodas(userId);
+      setPlaylists(dados as Playlist[]);
+    } catch (error) {
+      console.log('Erro ao carregar playlists do usuário:', error);
+    }
+  };
+
+  useEffect(() => {
+    // Monitora o estado de autenticação para carregar apenas as playlists do usuário logado (usuario -> playlist)
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      if (user) {
+        carregarPlaylists(user.uid);
+      } else {
+        setPlaylists([]);
+      }
+    });
+
+    return () => unsubscribe();
+  }, []);
+
+  const addPlaylist = async (playlistData: PlaylistModel) => {
     const randomColor = defaultColors[Math.floor(Math.random() * defaultColors.length)];
-    const newPlaylist: Playlist = {
+    const criada = await PlaylistService.criar({
       ...playlistData,
-      id: Date.now().toString(),
-      color: randomColor,
-    };
-    setPlaylists([...playlists, newPlaylist]);
+      color: playlistData.color || randomColor,
+    });
+    await carregarPlaylists();
+    return criada;
   };
 
-  const updatePlaylist = (id: string, updatedData: Omit<Playlist, 'id'>) => {
-    setPlaylists((currentPlaylists) => 
-      currentPlaylists.map(p => 
-        p.id === id ? { ...p, ...updatedData } : p
-      )
-    );
+  const updatePlaylist = async (id: string, updatedData: PlaylistModel) => {
+    const sucesso = await PlaylistService.atualizar(id, updatedData);
+    await carregarPlaylists();
+    return sucesso;
   };
 
-  const deletePlaylist = (id: string) => {
-    setPlaylists((currentPlaylists) => currentPlaylists.filter(p => p.id !== id));
+  const deletePlaylist = async (id: string) => {
+    const sucesso = await PlaylistService.eliminar(id);
+    await carregarPlaylists();
+    return sucesso;
   };
 
   return (
-    <PlaylistContext.Provider value={{ playlists, addPlaylist, updatePlaylist, deletePlaylist }}>
+    <PlaylistContext.Provider value={{ playlists, carregarPlaylists, addPlaylist, updatePlaylist, deletePlaylist }}>
       {children}
     </PlaylistContext.Provider>
   );
@@ -79,4 +84,3 @@ export const usePlaylists = () => {
   }
   return context;
 };
-
