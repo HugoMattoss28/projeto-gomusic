@@ -6,7 +6,7 @@
 export const BIN_ID = '6ae146cbffd5d16053917681';
 
 // Bin de usuários e playlists — cole abaixo o ID do novo Bin criado no JSONBin.io
-export const USERS_BIN_ID = '6aea86edac6210605a6a600c';
+export const USERS_BIN_ID = 'COLE_AQUI_O_ID_DO_BIN_DE_USUARIOS';
 
 // Master Key da conta no JSONBin.io
 export const API_KEY = '$2a$10$FR79dxvpyvVJJBn5OzGsau.1KngIocFLd8I81jHtsynNnymH6mid2';

@@ -59,3 +59,4 @@ O **goMusic** é um aplicativo mobile/web de música desenvolvido com **Expo SDK
 - `npx tsc --noEmit`: **0 erros**
 - `npm run lint`: **0 erros e 0 avisos**
 - `npx expo-doctor`: **18/18 verificações aprovadas**
+
