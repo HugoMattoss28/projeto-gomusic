@@ -1,11 +1,9 @@
 import { Ionicons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
 import React, { useState } from "react";
 import {
     ActivityIndicator,
     FlatList,
     Modal,
-    SafeAreaView,
     ScrollView,
     StatusBar,
     StyleSheet,
@@ -14,16 +12,22 @@ import {
     TouchableOpacity,
     View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { Playlist, usePlaylists } from "../context/PlaylistContext";
-import { PlaylistModel } from "./models/PlaylistModel";
-import { auth } from "./services/firebaseConfig";
 import { PlaylistService } from "./services/playlistService";
+import { userService } from "./services/userService";
 
 export default function PlaylistScreen({ navigation }: any) {
-    const { playlists, carregarPlaylists } = usePlaylists();
+    const {
+        playlists,
+        addPlaylist,
+        updatePlaylist,
+        deletePlaylist: removerPlaylistContexto,
+    } = usePlaylists();
 
     const [modalVisible, setModalVisible] = useState(false);
     const [editingId, setEditingId] = useState<string | null>(null);
+    const [editingColor, setEditingColor] = useState<string | undefined>(undefined);
 
     // Campos do formulário da entidade do projeto (Playlist)
     const [nomePlaylist, setNomePlaylist] = useState("");
@@ -44,7 +48,7 @@ export default function PlaylistScreen({ navigation }: any) {
 
     const handleLogout = async () => {
         try {
-            await signOut(auth);
+            await userService.logout();
             navigation.replace("Login");
         } catch (error) {
             console.log("Erro ao sair", error);
@@ -81,6 +85,7 @@ export default function PlaylistScreen({ navigation }: any) {
         setQtdFaixas("");
         setClima("");
         setEditingId(null);
+        setEditingColor(undefined);
         setMensagem(null);
     };
 
@@ -91,6 +96,7 @@ export default function PlaylistScreen({ navigation }: any) {
 
     const openEditModal = (playlist: Playlist) => {
         setEditingId(playlist.id);
+        setEditingColor(playlist.color);
         setNomePlaylist(playlist.nome || "");
         setDescricao(playlist.descricao || "");
         setGenero(playlist.genero || "");
@@ -142,8 +148,8 @@ export default function PlaylistScreen({ navigation }: any) {
             setLoading(true);
 
             if (editingId) {
-                // Atualiza os dados no Firebase Realtime Database
-                await PlaylistService.atualizar(editingId, {
+                // Atualiza os dados no JSONBin.io
+                await updatePlaylist(editingId, {
                     id: editingId,
                     nome: nomePlaylist.trim(),
                     descricao: descricao.trim(),
@@ -152,12 +158,13 @@ export default function PlaylistScreen({ navigation }: any) {
                     clima: clima.trim(),
                     dataCriacao: dataCriacao.trim(),
                     qtdFaixas: qtdFaixasNum,
+                    color: editingColor,
                 });
 
                 exibirMensagem("Playlist atualizada com sucesso!", "sucesso");
             } else {
-                // Grava os dados no Firebase Realtime Database vinculado ao usuário logado
-                await PlaylistService.criar({
+                // Grava os dados no JSONBin.io vinculado ao usuário logado
+                await addPlaylist({
                     nome: nomePlaylist.trim(),
                     descricao: descricao.trim(),
                     genero: genero.trim(),
@@ -171,17 +178,12 @@ export default function PlaylistScreen({ navigation }: any) {
                 exibirMensagem("Playlist cadastrada com sucesso!", "sucesso");
             }
 
-            // Recarrega as playlists do Firebase para atualizar a tela
-            await carregarPlaylists();
-
-            // Limpa o formulário após a gravação
-            limparFormulario();
-
             setTimeout(() => {
                 setModalVisible(false);
+                limparFormulario();
             }, 1200);
         } catch (error: any) {
-            console.error("Erro ao salvar no Firebase Realtime Database:", error);
+            console.error("Erro ao salvar no JSONBin.io:", error);
             exibirMensagem(error.message || "Erro ao salvar no banco de dados. Tente novamente.", "erro");
         } finally {
             setLoading(false);
@@ -195,8 +197,7 @@ export default function PlaylistScreen({ navigation }: any) {
     const confirmDelete = async () => {
         if (deleteId) {
             try {
-                await PlaylistService.eliminar(deleteId);
-                await carregarPlaylists();
+                await removerPlaylistContexto(deleteId);
             } catch (error) {
                 console.error("Erro ao excluir playlist:", error);
             }
@@ -228,8 +229,8 @@ export default function PlaylistScreen({ navigation }: any) {
     );
 
     return (
-        <SafeAreaView style={styles.container}>
-            <StatusBar barStyle="light-content" backgroundColor="#121212" />
+        <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+            <StatusBar barStyle="light-content" />
 
             {/* CABEÇALHO */}
             <View style={styles.header}>
@@ -498,7 +499,7 @@ const styles = StyleSheet.create({
         justifyContent: "space-between",
         alignItems: "center",
         paddingHorizontal: 20,
-        paddingTop: 40,
+        paddingTop: 20,
         paddingBottom: 20,
     },
     title: {

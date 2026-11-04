@@ -1,6 +1,6 @@
-import { child, get, push, ref, remove, set, update } from 'firebase/database';
+import { binUsuariosConfigurado } from '../../constants/config';
 import { PlaylistModel } from '../models/PlaylistModel';
-import { auth, database } from '../services/firebaseConfig';
+import { userService } from './userService';
 
 // Tipo para mapear os erros de validação de cada campo do formulário
 export type ErrosPlaylist = Partial<Record<keyof PlaylistModel, string>>;
@@ -29,7 +29,12 @@ export class PlaylistService {
         if (dia < 1 || dia > 31) return false;
         if (ano < 1900 || ano > 2100) return false;
 
-        return true;
+        const dataObj = new Date(ano, mes - 1, dia);
+        return (
+            dataObj.getFullYear() === ano &&
+            dataObj.getMonth() === mes - 1 &&
+            dataObj.getDate() === dia
+        );
     }
 
     // Validação dos campos obrigatórios da entidade
@@ -73,32 +78,52 @@ export class PlaylistService {
         };
     }
 
-    // Retorna o UID do usuário autenticado no Firebase
+    // Retorna o ID do usuário autenticado
     private static obterUidUsuario(usuarioId?: string): string {
-        const uid = usuarioId || auth.currentUser?.uid;
+        const uid = usuarioId || userService.obterUsuarioAtual()?.id;
         if (!uid) {
             throw new Error('Usuário não autenticado. Faça login para gerenciar playlists.');
         }
         return uid;
     }
 
-    // Cadastra uma nova Playlist ligada ao usuário autenticado: usuarios/{uid}/playlists/{id}
+    private static normalizarPlaylist(item: any, uid: string): PlaylistModel {
+        return {
+            id: String(item.id),
+            usuarioId: uid,
+            nome: item.nome || item.name || '',
+            descricao: item.descricao || item.description || '',
+            genero: item.genero || item.genre || '',
+            autor: item.autor || item.author || '',
+            dataCriacao: item.dataCriacao || '',
+            qtdFaixas: item.qtdFaixas || 0,
+            clima: item.clima || item.mood || '',
+            color: item.color || '#8B5CF6',
+        };
+    }
+
+    // Cadastra uma nova Playlist ligada ao usuário autenticado no JSONBin.io
     static async criar(dados: PlaylistModel, usuarioId?: string): Promise<PlaylistModel> {
         try {
             const uid = this.obterUidUsuario(usuarioId || dados.usuarioId);
-            const userPlaylistsRef = ref(database, `usuarios/${uid}/playlists`);
+            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
 
-            // Gera uma chave/ID única no nó de playlists do usuário
-            const novaPlaylistRef = push(userPlaylistsRef);
-            const novoId = novaPlaylistRef.key;
-
-            if (!novoId) {
-                throw new Error('Não foi possível gerar um ID único no Firebase.');
+            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
+            if (indiceUsuario === -1) {
+                throw new Error('Usuário não encontrado no JSONBin.io.');
             }
 
-            // Apenas campos em português, sem duplicação
+            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
+                ? usuarios[indiceUsuario].playlists!
+                : [];
+
+            const maiorId = playlistsAtuais.reduce((maior, item) => {
+                const num = parseInt(String(item.id), 10);
+                return !isNaN(num) && num > maior ? num : maior;
+            }, 0);
+
             const novaPlaylist: PlaylistModel = {
-                id: novoId,
+                id: String(maiorId + 1),
                 usuarioId: uid,
                 nome: dados.nome.trim(),
                 descricao: dados.descricao.trim(),
@@ -110,144 +135,99 @@ export class PlaylistService {
                 color: dados.color || '#8B5CF6',
             };
 
-            await set(novaPlaylistRef, novaPlaylist);
+            const usuariosAtualizados = [...usuarios];
+            usuariosAtualizados[indiceUsuario] = {
+                ...usuarios[indiceUsuario],
+                playlists: [...playlistsAtuais, novaPlaylist],
+            };
 
-            // Se ainda existir o nó raiz antigo 'playlists', limpa o item de teste duplicado
-            try {
-                const raizAntigaRef = ref(database, 'playlists');
-                const snapshotRaiz = await get(raizAntigaRef);
-                if (snapshotRaiz.exists()) {
-                    await remove(raizAntigaRef);
-                }
-            } catch (_) {}
-
+            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
             return novaPlaylist;
         } catch (error) {
-            console.error('Erro ao criar playlist no Firebase:', error);
+            console.error('Erro ao criar playlist no JSONBin.io:', error);
             throw error;
         }
     }
 
-    // Lista todas as playlists pertencentes ao usuário logado: usuarios/{uid}/playlists
+    // Lista todas as playlists pertencentes ao usuário logado no JSONBin.io
     static async listarTodas(usuarioId?: string): Promise<PlaylistModel[]> {
         try {
-            const uid = usuarioId || auth.currentUser?.uid;
-            if (!uid) {
+            const uid = usuarioId || userService.obterUsuarioAtual()?.id;
+            if (!uid || !binUsuariosConfigurado()) {
                 return [];
             }
 
-            const dbRef = ref(database);
-            const snapshot = await get(child(dbRef, `usuarios/${uid}/playlists`));
+            const { usuarios } = await userService.lerEstruturaBin();
+            const usuario = usuarios.find((u) => String(u.id) === String(uid));
 
-            const lista: PlaylistModel[] = [];
-
-            if (snapshot.exists()) {
-                const data = snapshot.val();
-                Object.keys(data).forEach((key) => {
-                    const item = data[key];
-                    lista.push({
-                        id: key,
-                        usuarioId: uid,
-                        nome: item.nome || item.name || '',
-                        descricao: item.descricao || item.description || '',
-                        genero: item.genero || item.genre || '',
-                        autor: item.autor || item.author || '',
-                        dataCriacao: item.dataCriacao || '',
-                        qtdFaixas: item.qtdFaixas || 0,
-                        clima: item.clima || item.mood || '',
-                        color: item.color || '#8B5CF6',
-                    });
-                });
-                return lista;
+            if (!usuario || !Array.isArray(usuario.playlists)) {
+                return [];
             }
 
-            // Se o usuário ainda não tiver playlists, verifica se há playlist órfã no nó raiz 'playlists' e migra para o usuário
-            try {
-                const snapshotRaiz = await get(child(dbRef, 'playlists'));
-                if (snapshotRaiz.exists()) {
-                    const dataRaiz = snapshotRaiz.val();
-                    for (const key of Object.keys(dataRaiz)) {
-                        const item = dataRaiz[key];
-                        const playlistMigrada: PlaylistModel = {
-                            id: key,
-                            usuarioId: uid,
-                            nome: item.nome || item.name || '',
-                            descricao: item.descricao || item.description || '',
-                            genero: item.genero || item.genre || '',
-                            autor: item.autor || item.author || '',
-                            dataCriacao: item.dataCriacao || '',
-                            qtdFaixas: item.qtdFaixas || 0,
-                            clima: item.clima || item.mood || '',
-                            color: item.color || '#8B5CF6',
-                        };
-
-                        // Salva no nó do usuário
-                        await set(ref(database, `usuarios/${uid}/playlists/${key}`), playlistMigrada);
-                        lista.push(playlistMigrada);
-                    }
-                    // Remove o nó raiz 'playlists' antigo para limpar o banco
-                    await remove(ref(database, 'playlists'));
-                }
-            } catch (_) {}
-
-            return lista;
+            return usuario.playlists.map((item) => this.normalizarPlaylist(item, uid));
         } catch (error) {
-            console.error('Erro ao listar playlists do usuário no Firebase:', error);
+            console.error('Erro ao listar playlists do usuário no JSONBin.io:', error);
             return [];
         }
     }
 
-    // Obtém uma playlist pelo ID dentro do nó do usuário: usuarios/{uid}/playlists/{id}
+    // Obtém uma playlist pelo ID dentro do usuário no JSONBin.io
     static async obterPorId(id: string, usuarioId?: string): Promise<PlaylistModel | null> {
         try {
-            const uid = this.obterUidUsuario(usuarioId);
-            const dbRef = ref(database);
-            const snapshot = await get(child(dbRef, `usuarios/${uid}/playlists/${id}`));
-
-            if (snapshot.exists()) {
-                const item = snapshot.val();
-                return {
-                    id,
-                    usuarioId: uid,
-                    nome: item.nome || item.name || '',
-                    descricao: item.descricao || item.description || '',
-                    genero: item.genero || item.genre || '',
-                    autor: item.autor || item.author || '',
-                    dataCriacao: item.dataCriacao || '',
-                    qtdFaixas: item.qtdFaixas || 0,
-                    clima: item.clima || item.mood || '',
-                    color: item.color || '#8B5CF6',
-                };
-            }
-
-            return null;
+            const lista = await this.listarTodas(usuarioId);
+            return lista.find((item) => String(item.id) === String(id)) || null;
         } catch (error) {
             console.error(`Erro ao buscar playlist com ID ${id}:`, error);
             return null;
         }
     }
 
-    // Atualiza uma playlist do usuário autenticado: usuarios/{uid}/playlists/{id}
+    // Atualiza uma playlist do usuário autenticado no JSONBin.io
     static async atualizar(id: string, dados: PlaylistModel, usuarioId?: string): Promise<boolean> {
         try {
             const uid = this.obterUidUsuario(usuarioId || dados.usuarioId);
-            const playlistRef = ref(database, `usuarios/${uid}/playlists/${id}`);
+            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
 
-            // Apenas campos em português, sem duplicação
-            const dadosAtualizados: PlaylistModel = {
-                id,
+            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
+            if (indiceUsuario === -1) {
+                throw new Error('Usuário não encontrado no JSONBin.io.');
+            }
+
+            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
+                ? [...usuarios[indiceUsuario].playlists!]
+                : [];
+
+            const indicePlaylist = playlistsAtuais.findIndex((p) => String(p.id) === String(id));
+            if (indicePlaylist === -1) {
+                throw new Error('Playlist não encontrada.');
+            }
+
+            const playlistAtualizada: PlaylistModel = {
+                id: String(id),
                 usuarioId: uid,
                 nome: dados.nome.trim(),
                 descricao: dados.descricao.trim(),
                 genero: dados.genero.trim(),
                 autor: dados.autor.trim(),
                 dataCriacao: dados.dataCriacao ? dados.dataCriacao.trim() : '',
-                qtdFaixas: dados.qtdFaixas ? (typeof dados.qtdFaixas === 'string' ? parseInt(dados.qtdFaixas, 10) : dados.qtdFaixas) : 0,
+                qtdFaixas: dados.qtdFaixas
+                    ? typeof dados.qtdFaixas === 'string'
+                        ? parseInt(dados.qtdFaixas, 10)
+                        : dados.qtdFaixas
+                    : 0,
                 clima: dados.clima ? dados.clima.trim() : '',
-                color: dados.color || '#8B5CF6',
+                color: dados.color || playlistsAtuais[indicePlaylist].color || '#8B5CF6',
             };
 
-            await set(playlistRef, dadosAtualizados);
+            playlistsAtuais[indicePlaylist] = playlistAtualizada;
+
+            const usuariosAtualizados = [...usuarios];
+            usuariosAtualizados[indiceUsuario] = {
+                ...usuarios[indiceUsuario],
+                playlists: playlistsAtuais,
+            };
+
+            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
             return true;
         } catch (error) {
             console.error(`Erro ao atualizar playlist com ID ${id}:`, error);
@@ -255,12 +235,30 @@ export class PlaylistService {
         }
     }
 
-    // Remove uma playlist do usuário autenticado: usuarios/{uid}/playlists/{id}
+    // Remove uma playlist do usuário autenticado no JSONBin.io
     static async eliminar(id: string, usuarioId?: string): Promise<boolean> {
         try {
             const uid = this.obterUidUsuario(usuarioId);
-            const playlistRef = ref(database, `usuarios/${uid}/playlists/${id}`);
-            await remove(playlistRef);
+            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
+
+            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
+            if (indiceUsuario === -1) {
+                throw new Error('Usuário não encontrado no JSONBin.io.');
+            }
+
+            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
+                ? usuarios[indiceUsuario].playlists!
+                : [];
+
+            const novasPlaylists = playlistsAtuais.filter((p) => String(p.id) !== String(id));
+
+            const usuariosAtualizados = [...usuarios];
+            usuariosAtualizados[indiceUsuario] = {
+                ...usuarios[indiceUsuario],
+                playlists: novasPlaylists,
+            };
+
+            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
             return true;
         } catch (error) {
             console.error(`Erro ao eliminar playlist com ID ${id}:`, error);

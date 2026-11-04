@@ -1,5 +1,5 @@
 import { Ionicons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
+import { userService } from "./services/userService";
 import React, { useCallback, useEffect, useState } from "react";
 import {
   ActivityIndicator,
@@ -7,7 +7,7 @@ import {
   Image,
   Modal,
   RefreshControl,
-  SafeAreaView,
+
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -16,6 +16,7 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { MusicaJson } from "../models/musica";
 import {
   atualizarMusica,
@@ -23,7 +24,7 @@ import {
   excluirMusica,
   listarMusicas,
 } from "../services/api";
-import { auth } from "./services/firebaseConfig";
+
 
 export default function ApiScreen({ navigation }: any) {
   // Lista de músicas vinda do JSONBin.io
@@ -90,7 +91,7 @@ export default function ApiScreen({ navigation }: any) {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await userService.logout();
       navigation.replace("Login");
     } catch (error) {
       console.log("Erro ao sair", error);
@@ -244,7 +245,7 @@ export default function ApiScreen({ navigation }: any) {
   });
 
   const renderMusica = ({ item }: { item: MusicaJson }) => {
-    const chaveImg = String(item.id);
+    const chaveImg = `${item.id}:${item.imagem || ""}`;
     const usarFallback = !item.imagem || imagensComErro[chaveImg];
 
     return (
@@ -302,8 +303,8 @@ export default function ApiScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" />
 
       {/* CABEÇALHO */}
       <View style={styles.header}>
@@ -706,7 +707,7 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     alignItems: "center",
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 14,
   },
   title: {

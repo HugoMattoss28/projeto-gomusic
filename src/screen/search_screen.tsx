@@ -1,15 +1,15 @@
 import { Ionicons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
 import React, { useState } from "react";
-import { Modal, SafeAreaView, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
-import { auth } from "./services/firebaseConfig";
+import { Modal, StatusBar, StyleSheet, Text, TextInput, TouchableOpacity, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
+import { userService } from "./services/userService";
 
 export default function SearchScreen({ navigation }: any) {
   const [logoutModal, setLogoutModal] = useState(false);
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await userService.logout();
       navigation.replace("Login");
     } catch (error) {
       console.log("Erro ao sair", error);
@@ -21,8 +21,8 @@ export default function SearchScreen({ navigation }: any) {
   };
 
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" />
 
       {/* CABEÇALHO E BARRA DE BUSCA */}
       <View style={styles.header}>
@@ -104,7 +104,7 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingHorizontal: 20,
-    paddingTop: 40,
+    paddingTop: 20,
     paddingBottom: 20,
   },
   title: {
@@ -168,4 +168,3 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
 });
-

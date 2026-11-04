@@ -8,12 +8,13 @@
 import axios from "axios";
 import { API_KEY, BIN_ID, URL } from "../constants/config";
 import { JSONBinResponse, MusicaJson } from "../models/musica";
-import { auth } from "../screen/services/firebaseConfig";
+import { userService } from "../screen/services/userService";
 
 // URL base para escrita (PUT no JSONBin v3 não utiliza o sufixo /latest)
 const WRITE_URL = `https://api.jsonbin.io/v3/b/${BIN_ID}`;
 
 // Instância configurada do Axios com os cabeçalhos exigidos pelo JSONBin.io
+// eslint-disable-next-line import/no-named-as-default-member
 export const api = axios.create({
   headers: {
     "Content-Type": "application/json",
@@ -78,7 +79,7 @@ export async function criarMusica(
     }, 0);
 
     const agora = new Date().toISOString();
-    const usuarioAtual = auth.currentUser;
+    const usuarioAtual = userService.obterUsuarioAtual();
 
     const novaMusica: MusicaJson = {
       id: String(maiorId + 1),
@@ -94,11 +95,11 @@ export async function criarMusica(
       criadoEm: agora,
       criadoPor:
         nova.criadoPor ||
-        usuarioAtual?.displayName ||
+        usuarioAtual?.nome ||
         usuarioAtual?.email ||
         "Usuário goMusic",
       usuarioEmail: usuarioAtual?.email || undefined,
-      usuarioId: usuarioAtual?.uid || undefined,
+      usuarioId: usuarioAtual?.id || undefined,
     };
 
     const novaLista = [...musicasAtuais, novaMusica];

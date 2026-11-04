@@ -3,6 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
 import { StatusBar } from "expo-status-bar"; // <-- Adicionado para controlar a barra de status
 import React from "react";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 
 // Importa todas a telas do app
 import ApiScreen from "./src/screen/api_screen";
@@ -19,24 +20,26 @@ const Stack = createNativeStackNavigator();
 
 export default function App() {
   return (
-    <PlaylistProvider>
-      <NavigationContainer>
-        {/* "light" deixa os ícones do topo do celular brancos, combinando com o fundo escuro */}
-        <StatusBar style="light" backgroundColor="transparent" translucent />
-        
-        <Stack.Navigator
-          initialRouteName="Splash"
-          screenOptions={{ headerShown: false }}
-        >
-          <Stack.Screen name="Splash" component={SplashScreen} />
-          <Stack.Screen name="Login" component={LoginScreen} />
-          <Stack.Screen name="Register" component={RegisterScreen} />
-          <Stack.Screen name="Home" component={HomeScreen} />
-          <Stack.Screen name="Search" component={SearchScreen} />
-          <Stack.Screen name="Api" component={ApiScreen} />
-          <Stack.Screen name="Playlist" component={PlaylistScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
-    </PlaylistProvider>
+    <SafeAreaProvider>
+      <PlaylistProvider>
+        <NavigationContainer>
+          {/* "light" deixa os ícones do topo do celular brancos, combinando com o fundo escuro */}
+          <StatusBar style="light" />
+
+          <Stack.Navigator
+            initialRouteName="Splash"
+            screenOptions={{ headerShown: false }}
+          >
+            <Stack.Screen name="Splash" component={SplashScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} />
+            <Stack.Screen name="Register" component={RegisterScreen} />
+            <Stack.Screen name="Home" component={HomeScreen} />
+            <Stack.Screen name="Search" component={SearchScreen} />
+            <Stack.Screen name="Api" component={ApiScreen} />
+            <Stack.Screen name="Playlist" component={PlaylistScreen} />
+          </Stack.Navigator>
+        </NavigationContainer>
+      </PlaylistProvider>
+    </SafeAreaProvider>
   );
 }

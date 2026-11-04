@@ -98,7 +98,7 @@ export default function CadastroScreen({ navigation }: any) {
   const [generalError, setGeneralError] = useState(""); // Novo estado
 
   // =====================================================
-  // CADASTRAR USUÁRIO NO FIREBASE
+  // CADASTRAR USUÁRIO NO JSONBIN.IO
   // =====================================================
   const cadastrarUsuario = async () => {
     setGeneralError(""); // Limpa o erro ao tentar novamente
@@ -128,7 +128,7 @@ export default function CadastroScreen({ navigation }: any) {
       if (error.code === 'auth/email-already-in-use') {
         setEmailError("Este e-mail já está cadastrado.");
       } else {
-        setGeneralError("Não foi possível realizar o cadastro. Tente novamente."); // Substitui o Alert
+        setGeneralError(error?.message || "Não foi possível realizar o cadastro. Tente novamente."); // Substitui o Alert
       }
     }
   };
@@ -139,7 +139,7 @@ export default function CadastroScreen({ navigation }: any) {
   return (
     <View style={styles.container}>
       <View style={styles.topSection}>
-        <Image source={require("../../assets/imagens/gomusic_logo.png")} style={styles.logo} />
+        <Image source={require("../../assets/imagens/gomusic_logo.png")} style={styles.logo} resizeMode="contain" />
         <Text style={styles.welcomeText}>Crie sua conta</Text>
         <Text style={styles.subtitleText}>Junte-se ao goMusic e sinta a vibe.</Text>
       </View>
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090B" },
   
   topSection: { flex: 0.35, alignItems: "center", justifyContent: "center", paddingBottom: 10, paddingTop: 30 },
-  logo: { width: 70, height: 70, resizeMode: "contain", marginBottom: 10 },
+  logo: { width: 70, height: 70, marginBottom: 10 },
   welcomeText: { fontSize: 24, fontWeight: "900", color: "#FFF", letterSpacing: -0.5 },
   subtitleText: { fontSize: 13, color: "#858585", marginTop: 5 },
 

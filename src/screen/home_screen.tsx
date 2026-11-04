@@ -1,11 +1,8 @@
 import { Ionicons, MaterialIcons } from "@expo/vector-icons";
-import { signOut } from "firebase/auth";
 import React, { useEffect, useState } from "react";
 import {
   Image,
   Modal,
-  Platform,
-  SafeAreaView,
   ScrollView,
   StatusBar,
   StyleSheet,
@@ -13,8 +10,9 @@ import {
   TouchableOpacity,
   View
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { usePlaylists } from "../context/PlaylistContext";
-import { auth } from "./services/firebaseConfig";
+import { userService } from "./services/userService";
 
 export default function HomeScreen({ route, navigation }: any) {
   // =====================================================
@@ -23,7 +21,7 @@ export default function HomeScreen({ route, navigation }: any) {
   
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await userService.logout();
       navigation.replace("Login");
     } catch (error) {
       console.log("Erro ao sair", error);
@@ -51,7 +49,7 @@ export default function HomeScreen({ route, navigation }: any) {
 
       return () => clearTimeout(timer);
     }
-  }, [route.params?.showPremium]);
+  }, [route.params?.showPremium, navigation]);
 
   // =====================================================
   // DADOS FAKES (MANTIDOS DAS VERSÕES ANTERIORES)
@@ -69,8 +67,8 @@ export default function HomeScreen({ route, navigation }: any) {
   // INTERFACE PRINCIPAL
   // =====================================================
   return (
-    <SafeAreaView style={styles.container}>
-      <StatusBar barStyle="light-content" backgroundColor="#121212" />
+    <SafeAreaView style={styles.container} edges={["top", "left", "right"]}>
+      <StatusBar barStyle="light-content" />
 
       {/* CONTEÚDO DA HOME (ScrollView) */}
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 160 }}>
@@ -280,7 +278,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: "#121212",
-    paddingTop: Platform.OS === "android" ? StatusBar.currentHeight : 0,
   },
   header: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 20, paddingTop: 20, marginBottom: 25 },
   greeting: { fontSize: 24, fontWeight: "800", color: "#FFFFFF", letterSpacing: -0.5 },

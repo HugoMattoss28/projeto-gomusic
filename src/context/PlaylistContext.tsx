@@ -1,8 +1,7 @@
-import { onAuthStateChanged } from 'firebase/auth';
 import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
 import { PlaylistModel } from '../screen/models/PlaylistModel';
-import { auth } from '../screen/services/firebaseConfig';
 import { PlaylistService } from '../screen/services/playlistService';
+import { userService } from '../screen/services/userService';
 
 export type Playlist = PlaylistModel & { id: string };
 
@@ -23,7 +22,7 @@ export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
 
   const carregarPlaylists = async (uid?: string) => {
     try {
-      const userId = uid || auth.currentUser?.uid;
+      const userId = uid || userService.obterUsuarioAtual()?.id;
       if (!userId) {
         setPlaylists([]);
         return;
@@ -37,9 +36,9 @@ export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     // Monitora o estado de autenticação para carregar apenas as playlists do usuário logado (usuario -> playlist)
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = userService.onAuthChange((user) => {
       if (user) {
-        carregarPlaylists(user.uid);
+        carregarPlaylists(user.id);
       } else {
         setPlaylists([]);
       }

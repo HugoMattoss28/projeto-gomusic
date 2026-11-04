@@ -1,8 +1,7 @@
+import { Ionicons } from "@expo/vector-icons";
 import React, { useState } from "react";
 import { Image, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from "react-native";
-import { Ionicons } from "@expo/vector-icons";
-import { signInWithEmailAndPassword } from "firebase/auth";
-import { auth } from "./services/firebaseConfig"; 
+import { userService } from "./services/userService";
 
 export default function LoginScreen({ navigation }: any) {
   const [email, setEmail] = useState("");
@@ -11,7 +10,7 @@ export default function LoginScreen({ navigation }: any) {
   const [emailError, setEmailError] = useState("");
   const [passwordError, setPasswordError] = useState("");
   
-  // NOVO ESTADO: Para capturar o erro do Firebase (usuário não encontrado/senha errada)
+  // Estado para capturar o erro da autenticação via JSONBin.io
   const [loginError, setLoginError] = useState(""); 
   
   const [showPassword, setShowPassword] = useState(false);
@@ -62,18 +61,18 @@ export default function LoginScreen({ navigation }: any) {
     }
 
     try {
-      await signInWithEmailAndPassword(auth, email.trim(), password);
+      await userService.login(email.trim(), password);
       navigation.replace("Home", { showPremium: true });
     } catch (error: any) {
-      console.log("Erro do Firebase:", error.code);
+      console.log("Erro na autenticação (JSONBin):", error?.code || error?.message);
       
-      // Captura os erros de usuário não encontrado ou credenciais inválidas
+      // Captura os erros de usuário não encontrado, credenciais inválidas ou bin não configurado
       if (error.code === 'auth/user-not-found' || error.code === 'auth/invalid-credential' || error.code === 'auth/wrong-password') {
         setLoginError("Usuário não encontrado ou senha incorreta.");
-      } else if (error.code === 'auth/too-many-requests') {
-        setLoginError("Muitas tentativas falhas. Tente novamente mais tarde.");
+      } else if (error.code === 'config/missing-bin-id') {
+        setLoginError(error.message);
       } else {
-        setLoginError("Ocorreu um erro ao tentar entrar. Tente novamente.");
+        setLoginError(error?.message || "Ocorreu um erro ao tentar entrar. Tente novamente.");
       }
     }
   };
@@ -82,7 +81,7 @@ export default function LoginScreen({ navigation }: any) {
     <View style={styles.container}>
       {/* METADE SUPERIOR */}
       <View style={styles.topSection}>
-        <Image source={require("../../assets/imagens/gomusic_logo.png")} style={styles.logo} />
+        <Image source={require("../../assets/imagens/gomusic_logo.png")} style={styles.logo} resizeMode="contain" />
         <Text style={styles.welcomeText}>Bem-vindo de volta!</Text>
         <Text style={styles.subtitleText}>Faça login para curtir sua vibe</Text>
       </View>
@@ -128,7 +127,7 @@ export default function LoginScreen({ navigation }: any) {
             <Text style={styles.forgotText}>Esqueceu a senha?</Text>
           </Pressable>
 
-          {/* CAIXA DE ERRO DO FIREBASE (USUÁRIO NÃO ENCONTRADO) */}
+          {/* CAIXA DE ERRO DE AUTENTICAÇÃO */}
           {loginError !== "" && (
             <View style={styles.generalErrorContainer}>
               <Ionicons name="alert-circle-outline" size={20} color="#E05A47" />
@@ -159,7 +158,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#09090B" },
   
   topSection: { flex: 0.45, alignItems: "center", justifyContent: "center", paddingBottom: 20 },
-  logo: { width: 90, height: 90, resizeMode: "contain", marginBottom: 15 },
+  logo: { width: 90, height: 90, marginBottom: 15 },
   welcomeText: { fontSize: 26, fontWeight: "900", color: "#FFF", letterSpacing: -0.5 },
   subtitleText: { fontSize: 14, color: "#858585", marginTop: 5 },
 
