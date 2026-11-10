@@ -1,5 +1,3 @@
-import { PlaylistModel } from './PlaylistModel';
-
 export interface UserModel {
   id: string;
   nome: string;
@@ -7,7 +5,6 @@ export interface UserModel {
   email: string;
   senha?: string;
   createdAt?: string;
-  playlists?: PlaylistModel[];
 }
 
 export interface UsersJSONBinResponse {

@@ -10,3 +10,18 @@ export interface PlaylistModel {
     clima?: string;
     color?: string;
 }
+
+export interface PlaylistsJSONBinResponse {
+    record:
+        | PlaylistModel[]
+        | {
+              playlists?: PlaylistModel[];
+              record?: PlaylistModel[];
+              [key: string]: any;
+          };
+    metadata?: {
+        id?: string;
+        private?: boolean;
+        createdAt?: string;
+    };
+}

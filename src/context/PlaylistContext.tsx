@@ -1,4 +1,4 @@
-import React, { createContext, ReactNode, useContext, useEffect, useState } from 'react';
+import React, { createContext, ReactNode, useCallback, useContext, useEffect, useState } from 'react';
 import { PlaylistModel } from '../screen/models/PlaylistModel';
 import { PlaylistService } from '../screen/services/playlistService';
 import { userService } from '../screen/services/userService';
@@ -7,7 +7,7 @@ export type Playlist = PlaylistModel & { id: string };
 
 interface PlaylistContextData {
   playlists: Playlist[];
-  carregarPlaylists: () => Promise<void>;
+  carregarPlaylists: (uid?: string) => Promise<void>;
   addPlaylist: (playlist: PlaylistModel) => Promise<PlaylistModel>;
   updatePlaylist: (id: string, updatedPlaylist: PlaylistModel) => Promise<boolean>;
   deletePlaylist: (id: string) => Promise<boolean>;
@@ -20,7 +20,7 @@ const defaultColors = ['#8B5CF6', '#10B981', '#3B82F6', '#F59E0B', '#EF4444'];
 export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
 
-  const carregarPlaylists = async (uid?: string) => {
+  const carregarPlaylists = useCallback(async (uid?: string) => {
     try {
       const userId = uid || userService.obterUsuarioAtual()?.id;
       if (!userId) {
@@ -32,7 +32,7 @@ export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
     } catch (error) {
       console.log('Erro ao carregar playlists do usuário:', error);
     }
-  };
+  }, []);
 
   useEffect(() => {
     // Monitora o estado de autenticação para carregar apenas as playlists do usuário logado (usuario -> playlist)
@@ -45,9 +45,9 @@ export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [carregarPlaylists]);
 
-  const addPlaylist = async (playlistData: PlaylistModel) => {
+  const addPlaylist = useCallback(async (playlistData: PlaylistModel) => {
     const randomColor = defaultColors[Math.floor(Math.random() * defaultColors.length)];
     const criada = await PlaylistService.criar({
       ...playlistData,
@@ -55,19 +55,19 @@ export const PlaylistProvider = ({ children }: { children: ReactNode }) => {
     });
     await carregarPlaylists();
     return criada;
-  };
+  }, [carregarPlaylists]);
 
-  const updatePlaylist = async (id: string, updatedData: PlaylistModel) => {
+  const updatePlaylist = useCallback(async (id: string, updatedData: PlaylistModel) => {
     const sucesso = await PlaylistService.atualizar(id, updatedData);
     await carregarPlaylists();
     return sucesso;
-  };
+  }, [carregarPlaylists]);
 
-  const deletePlaylist = async (id: string) => {
+  const deletePlaylist = useCallback(async (id: string) => {
     const sucesso = await PlaylistService.eliminar(id);
     await carregarPlaylists();
     return sucesso;
-  };
+  }, [carregarPlaylists]);
 
   return (
     <PlaylistContext.Provider value={{ playlists, carregarPlaylists, addPlaylist, updatePlaylist, deletePlaylist }}>

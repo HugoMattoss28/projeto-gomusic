@@ -1,6 +1,8 @@
 // ==================================================
 // SERVICE — USUÁRIOS E AUTENTICAÇÃO VIA JSONBIN.IO
 // ==================================================
+// Gerencia exclusivamente o Bin de Usuários (USERS_BIN_ID)
+// ==================================================
 
 import axios from 'axios';
 import {
@@ -34,7 +36,7 @@ function validarConfiguracaoBinUsuarios(): void {
   if (!binUsuariosConfigurado()) {
     throw criarErroAuth(
       'config/missing-bin-id',
-      'Configure o USERS_BIN_ID em src/constants/config.tsx com o ID do bin criado no JSONBin.io.'
+      'Configure o USERS_BIN_ID em src/constants/config.tsx com o ID do bin de usuários criado no JSONBin.io.'
     );
   }
 }
@@ -71,6 +73,9 @@ export function montarPayloadBinUsuarios(
   formato: FormatoBinUsuarios,
   raizOriginal?: any
 ): any {
+  if (usuarios.length === 0) {
+    return { usuarios: [] };
+  }
   if (formato === 'usuarios') {
     return {
       ...(typeof raizOriginal === 'object' && !Array.isArray(raizOriginal) ? raizOriginal : {}),
@@ -133,7 +138,7 @@ class UserService {
     this.listeners.forEach((listener) => listener(this.usuarioAtual));
   }
 
-  // Substitui o onAuthStateChanged do Firebase
+  // Observa mudanças no usuário logado
   onAuthChange(listener: AuthListener): () => void {
     this.listeners.add(listener);
     listener(this.usuarioAtual);
@@ -160,7 +165,7 @@ class UserService {
     await usersApi.put(escrita, payload);
   }
 
-  // Cadastrar novo usuário no JSONBin.io
+  // Cadastrar novo usuário no Bin de Usuários (USERS_BIN_ID)
   async cadastrarUsuario(
     nome: string,
     celular: string,
@@ -196,7 +201,6 @@ class UserService {
         email: emailNormalizado,
         senha,
         createdAt: new Date().toISOString(),
-        playlists: [],
       };
 
       const novaLista = [...usuarios, novoUsuario];
@@ -216,7 +220,7 @@ class UserService {
     }
   }
 
-  // Autenticar usuário consultando o JSONBin.io
+  // Autenticar usuário consultando o Bin de Usuários (USERS_BIN_ID)
   async login(email: string, senha: string): Promise<UserModel> {
     validarConfiguracaoBinUsuarios();
 

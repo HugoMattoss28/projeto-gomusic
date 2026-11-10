@@ -1,9 +1,90 @@
-import { binUsuariosConfigurado } from '../../constants/config';
-import { PlaylistModel } from '../models/PlaylistModel';
+// ==================================================
+// SERVICE — PLAYLISTS VIA JSONBIN.IO (BIN SEPARADO)
+// ==================================================
+// Gerencia exclusivamente o Bin de Playlists (PLAYLISTS_BIN_ID),
+// vinculando cada playlist ao usuário logado pelo campo `usuarioId`.
+// ==================================================
+
+import axios from 'axios';
+import {
+    API_KEY,
+    binPlaylistsConfigurado,
+    obterUrlsPlaylists,
+} from '../../constants/config';
+import { PlaylistModel, PlaylistsJSONBinResponse } from '../models/PlaylistModel';
 import { userService } from './userService';
 
 // Tipo para mapear os erros de validação de cada campo do formulário
 export type ErrosPlaylist = Partial<Record<keyof PlaylistModel, string>>;
+
+type FormatoBinPlaylists = 'array' | 'playlists' | 'record';
+
+// eslint-disable-next-line import/no-named-as-default-member
+const playlistsApi = axios.create({
+    headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Key': API_KEY,
+    },
+    timeout: 15000,
+});
+
+function validarConfiguracaoBinPlaylists(): void {
+    if (!binPlaylistsConfigurado()) {
+        throw new Error(
+            'Configure o PLAYLISTS_BIN_ID em src/constants/config.tsx com o ID do bin de playlists criado no JSONBin.io.'
+        );
+    }
+}
+
+function extrairDadosBinPlaylists(dados: PlaylistsJSONBinResponse | any): {
+    playlists: PlaylistModel[];
+    formato: FormatoBinPlaylists;
+    raizRecord: any;
+} {
+    if (Array.isArray(dados)) {
+        return { playlists: dados, formato: 'array', raizRecord: dados };
+    }
+
+    const conteudo = dados?.record !== undefined ? dados.record : dados;
+
+    if (Array.isArray(conteudo)) {
+        return { playlists: conteudo, formato: 'array', raizRecord: conteudo };
+    }
+
+    if (Array.isArray(conteudo?.playlists)) {
+        return { playlists: conteudo.playlists, formato: 'playlists', raizRecord: conteudo };
+    }
+
+    if (Array.isArray(conteudo?.record)) {
+        return { playlists: conteudo.record, formato: 'record', raizRecord: conteudo };
+    }
+
+    return { playlists: [], formato: 'array', raizRecord: [] };
+}
+
+function montarPayloadBinPlaylists(
+    playlists: PlaylistModel[],
+    formato: FormatoBinPlaylists,
+    raizOriginal?: any
+): any {
+    // O JSONBin.io não aceita array vazio `[]` na raiz; se ficar vazio, envia `{ playlists: [] }`
+    if (playlists.length === 0) {
+        return { playlists: [] };
+    }
+    if (formato === 'playlists') {
+        return {
+            ...(typeof raizOriginal === 'object' && !Array.isArray(raizOriginal) ? raizOriginal : {}),
+            playlists,
+        };
+    }
+    if (formato === 'record') {
+        return {
+            ...(typeof raizOriginal === 'object' && !Array.isArray(raizOriginal) ? raizOriginal : {}),
+            record: playlists,
+        };
+    }
+    return playlists;
+}
 
 export class PlaylistService {
     // Aplica a máscara DD/MM/AAAA na data informada
@@ -87,10 +168,10 @@ export class PlaylistService {
         return uid;
     }
 
-    private static normalizarPlaylist(item: any, uid: string): PlaylistModel {
+    private static normalizarPlaylist(item: any, uidPadrao: string): PlaylistModel {
         return {
             id: String(item.id),
-            usuarioId: uid,
+            usuarioId: String(item.usuarioId || uidPadrao),
             nome: item.nome || item.name || '',
             descricao: item.descricao || item.description || '',
             genero: item.genero || item.genre || '',
@@ -102,29 +183,38 @@ export class PlaylistService {
         };
     }
 
-    // Cadastra uma nova Playlist ligada ao usuário autenticado no JSONBin.io
+    private static async lerBinPlaylists() {
+        validarConfiguracaoBinPlaylists();
+        const { leitura } = obterUrlsPlaylists();
+        const response = await playlistsApi.get<PlaylistsJSONBinResponse>(leitura);
+        return extrairDadosBinPlaylists(response.data);
+    }
+
+    private static async salvarBinPlaylists(
+        playlists: PlaylistModel[],
+        formato: FormatoBinPlaylists,
+        raizOriginal?: any
+    ): Promise<void> {
+        validarConfiguracaoBinPlaylists();
+        const { escrita } = obterUrlsPlaylists();
+        const payload = montarPayloadBinPlaylists(playlists, formato, raizOriginal);
+        await playlistsApi.put(escrita, payload);
+    }
+
+    // Cadastra uma nova Playlist no Bin de Playlists (PLAYLISTS_BIN_ID) ligada ao usuário autenticado
     static async criar(dados: PlaylistModel, usuarioId?: string): Promise<PlaylistModel> {
         try {
             const uid = this.obterUidUsuario(usuarioId || dados.usuarioId);
-            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
+            const { playlists, formato, raizRecord } = await this.lerBinPlaylists();
 
-            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
-            if (indiceUsuario === -1) {
-                throw new Error('Usuário não encontrado no JSONBin.io.');
-            }
-
-            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
-                ? usuarios[indiceUsuario].playlists!
-                : [];
-
-            const maiorId = playlistsAtuais.reduce((maior, item) => {
+            const maiorId = playlists.reduce((maior, item) => {
                 const num = parseInt(String(item.id), 10);
                 return !isNaN(num) && num > maior ? num : maior;
             }, 0);
 
             const novaPlaylist: PlaylistModel = {
                 id: String(maiorId + 1),
-                usuarioId: uid,
+                usuarioId: String(uid),
                 nome: dados.nome.trim(),
                 descricao: dados.descricao.trim(),
                 genero: dados.genero.trim(),
@@ -135,13 +225,9 @@ export class PlaylistService {
                 color: dados.color || '#8B5CF6',
             };
 
-            const usuariosAtualizados = [...usuarios];
-            usuariosAtualizados[indiceUsuario] = {
-                ...usuarios[indiceUsuario],
-                playlists: [...playlistsAtuais, novaPlaylist],
-            };
+            const novaLista = [...playlists, novaPlaylist];
+            await this.salvarBinPlaylists(novaLista, formato, raizRecord);
 
-            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
             return novaPlaylist;
         } catch (error) {
             console.error('Erro ao criar playlist no JSONBin.io:', error);
@@ -149,29 +235,26 @@ export class PlaylistService {
         }
     }
 
-    // Lista todas as playlists pertencentes ao usuário logado no JSONBin.io
+    // Lista todas as playlists pertencentes ao usuário logado a partir do Bin de Playlists (PLAYLISTS_BIN_ID)
     static async listarTodas(usuarioId?: string): Promise<PlaylistModel[]> {
         try {
             const uid = usuarioId || userService.obterUsuarioAtual()?.id;
-            if (!uid || !binUsuariosConfigurado()) {
+            if (!uid || !binPlaylistsConfigurado()) {
                 return [];
             }
 
-            const { usuarios } = await userService.lerEstruturaBin();
-            const usuario = usuarios.find((u) => String(u.id) === String(uid));
+            const { playlists } = await this.lerBinPlaylists();
 
-            if (!usuario || !Array.isArray(usuario.playlists)) {
-                return [];
-            }
-
-            return usuario.playlists.map((item) => this.normalizarPlaylist(item, uid));
+            return playlists
+                .filter((item) => !item.usuarioId || String(item.usuarioId) === String(uid))
+                .map((item) => this.normalizarPlaylist(item, String(uid)));
         } catch (error) {
             console.error('Erro ao listar playlists do usuário no JSONBin.io:', error);
             return [];
         }
     }
 
-    // Obtém uma playlist pelo ID dentro do usuário no JSONBin.io
+    // Obtém uma playlist pelo ID no Bin de Playlists
     static async obterPorId(id: string, usuarioId?: string): Promise<PlaylistModel | null> {
         try {
             const lista = await this.listarTodas(usuarioId);
@@ -182,29 +265,25 @@ export class PlaylistService {
         }
     }
 
-    // Atualiza uma playlist do usuário autenticado no JSONBin.io
+    // Atualiza uma playlist no Bin de Playlists (PLAYLISTS_BIN_ID)
     static async atualizar(id: string, dados: PlaylistModel, usuarioId?: string): Promise<boolean> {
         try {
             const uid = this.obterUidUsuario(usuarioId || dados.usuarioId);
-            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
+            const { playlists, formato, raizRecord } = await this.lerBinPlaylists();
 
-            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
-            if (indiceUsuario === -1) {
-                throw new Error('Usuário não encontrado no JSONBin.io.');
-            }
+            const indice = playlists.findIndex(
+                (p) =>
+                    String(p.id) === String(id) &&
+                    (!p.usuarioId || String(p.usuarioId) === String(uid))
+            );
 
-            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
-                ? [...usuarios[indiceUsuario].playlists!]
-                : [];
-
-            const indicePlaylist = playlistsAtuais.findIndex((p) => String(p.id) === String(id));
-            if (indicePlaylist === -1) {
-                throw new Error('Playlist não encontrada.');
+            if (indice === -1) {
+                throw new Error('Playlist não encontrada no bin.');
             }
 
             const playlistAtualizada: PlaylistModel = {
                 id: String(id),
-                usuarioId: uid,
+                usuarioId: String(uid),
                 nome: dados.nome.trim(),
                 descricao: dados.descricao.trim(),
                 genero: dados.genero.trim(),
@@ -216,18 +295,13 @@ export class PlaylistService {
                         : dados.qtdFaixas
                     : 0,
                 clima: dados.clima ? dados.clima.trim() : '',
-                color: dados.color || playlistsAtuais[indicePlaylist].color || '#8B5CF6',
+                color: dados.color || playlists[indice].color || '#8B5CF6',
             };
 
-            playlistsAtuais[indicePlaylist] = playlistAtualizada;
+            const novaLista = [...playlists];
+            novaLista[indice] = playlistAtualizada;
 
-            const usuariosAtualizados = [...usuarios];
-            usuariosAtualizados[indiceUsuario] = {
-                ...usuarios[indiceUsuario],
-                playlists: playlistsAtuais,
-            };
-
-            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
+            await this.salvarBinPlaylists(novaLista, formato, raizRecord);
             return true;
         } catch (error) {
             console.error(`Erro ao atualizar playlist com ID ${id}:`, error);
@@ -235,30 +309,21 @@ export class PlaylistService {
         }
     }
 
-    // Remove uma playlist do usuário autenticado no JSONBin.io
+    // Remove uma playlist do Bin de Playlists (PLAYLISTS_BIN_ID)
     static async eliminar(id: string, usuarioId?: string): Promise<boolean> {
         try {
             const uid = this.obterUidUsuario(usuarioId);
-            const { usuarios, formato, raizRecord } = await userService.lerEstruturaBin();
+            const { playlists, formato, raizRecord } = await this.lerBinPlaylists();
 
-            const indiceUsuario = usuarios.findIndex((u) => String(u.id) === String(uid));
-            if (indiceUsuario === -1) {
-                throw new Error('Usuário não encontrado no JSONBin.io.');
-            }
+            const novaLista = playlists.filter(
+                (p) =>
+                    !(
+                        String(p.id) === String(id) &&
+                        (!p.usuarioId || String(p.usuarioId) === String(uid))
+                    )
+            );
 
-            const playlistsAtuais = Array.isArray(usuarios[indiceUsuario].playlists)
-                ? usuarios[indiceUsuario].playlists!
-                : [];
-
-            const novasPlaylists = playlistsAtuais.filter((p) => String(p.id) !== String(id));
-
-            const usuariosAtualizados = [...usuarios];
-            usuariosAtualizados[indiceUsuario] = {
-                ...usuarios[indiceUsuario],
-                playlists: novasPlaylists,
-            };
-
-            await userService.salvarEstruturaBin(usuariosAtualizados, formato, raizRecord);
+            await this.salvarBinPlaylists(novaLista, formato, raizRecord);
             return true;
         } catch (error) {
             console.error(`Erro ao eliminar playlist com ID ${id}:`, error);
